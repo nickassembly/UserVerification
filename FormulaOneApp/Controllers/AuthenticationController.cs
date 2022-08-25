@@ -51,26 +51,37 @@ public class AuthenticationController : ControllerBase
                     }
                 });
             }
-            
+
             // create a user
             var new_user = new IdentityUser()
             {
                 Email = requestDto.Email,
-                UserName = requestDto.Email
+                UserName = requestDto.Email,
+                EmailConfirmed = false
             };
 
             var is_created = await _userManager.CreateAsync(new_user, requestDto.Password);
 
             if (is_created.Succeeded)
             {
-                // Generate the token
-                var token = GenerateJwtToken(new_user);
+                var code = await _userManager.GenerateEmailConfirmationTokenAsync(new_user);
 
-                return Ok(new AuthResult()
-                {
-                    Result = true,
-                    Token = token
-                });
+                var email_body = $"Please confirm your email address <a href=\"#URL#\">Click Here </a>";
+
+                // https://localhost:8080/authentication/verifyemail/userid=sdas&code=asdf
+                var callback_url = Request.Scheme + "://" + Request.Host + Url.Action("ConfirmEmail", "Authentication",
+                    new { userId = new_user.Id, code = code });
+
+                var body = email_body.Replace("#URL#", System.Text.Encodings.Web.HtmlEncoder.Default.Encode(callback_url));
+
+                // Generate the token
+                //var token = GenerateJwtToken(new_user);
+
+                //return Ok(new AuthResult()
+                //{
+                //    Result = true,
+                //    Token = token
+                //});
             }
 
             return BadRequest(new AuthResult()
