@@ -185,8 +185,10 @@ public class AuthenticationController : ControllerBase
 
         var request = new RestRequest("", Method.Post);
 
-        client.Authenticator = new HttpBasicAuthenticator("api",);
-    }
+        client.Authenticator = new HttpBasicAuthenticator("api", _configuration.GetSection("EmailConfig:API_KEY").Value);
+        request.AddParameter("domain", "https://app.mailgun.com/app/sending/domains/sandboxfc56fc9a62e941eaa5f33abc30e9ac9c.mailgun.org");
+        request.Resource = "{domain}/messages";
+        
     
     
     
