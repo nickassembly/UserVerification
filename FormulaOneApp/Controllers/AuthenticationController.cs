@@ -7,6 +7,8 @@ using FormulaOneApp.Models.DTOs;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using RestSharp;
+using RestSharp.Authenticators;
 
 namespace FormulaOneApp.Controllers;
 
@@ -15,7 +17,6 @@ namespace FormulaOneApp.Controllers;
 public class AuthenticationController : ControllerBase
 {
     private readonly UserManager<IdentityUser> _userManager;
-
     private readonly IConfiguration _configuration;
     //private readonly JwtConfig _jwtConfig;
 
@@ -72,7 +73,11 @@ public class AuthenticationController : ControllerBase
                 var callback_url = Request.Scheme + "://" + Request.Host + Url.Action("ConfirmEmail", "Authentication",
                     new { userId = new_user.Id, code = code });
 
+                // generate long number (encoding so it doesn't effect navigation)
                 var body = email_body.Replace("#URL#", System.Text.Encodings.Web.HtmlEncoder.Default.Encode(callback_url));
+
+                // SEND EMAIL
+
 
                 // Generate the token
                 //var token = GenerateJwtToken(new_user);
@@ -171,6 +176,16 @@ public class AuthenticationController : ControllerBase
 
         var token = jwtTokenHandler.CreateToken(tokenDescriptor);
         return jwtTokenHandler.WriteToken(token);
+    }
+
+    private void SendEmail(string body, string email)
+    {
+        // Create api client
+        var client = new RestClient("https://api.mailgun.net/v3");
+
+        var request = new RestRequest("", Method.Post);
+
+        client.Authenticator = new HttpBasicAuthenticator("api",);
     }
     
     
