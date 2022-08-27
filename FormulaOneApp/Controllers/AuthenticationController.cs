@@ -77,7 +77,12 @@ public class AuthenticationController : ControllerBase
                 var body = email_body.Replace("#URL#", System.Text.Encodings.Web.HtmlEncoder.Default.Encode(callback_url));
 
                 // SEND EMAIL
+                var result = SendEmail(body, new_user.Email);
 
+                if (result)
+                    return Ok("Please verify your email through the verification email");
+
+                return Ok("Please request an email verification link");
 
                 // Generate the token
                 //var token = GenerateJwtToken(new_user);
@@ -102,6 +107,41 @@ public class AuthenticationController : ControllerBase
         return BadRequest();
     }
 
+    [Route("ConfirmEmail")]
+    [HttpGet]
+    public async Task<IActionResult> ConfirmEmail(string userId, string code)
+    {
+        if (userId == null || code == null)
+        {
+            return BadRequest(new AuthResult()
+            {
+                Errors = new List<string>()
+                {
+                    "Invalid email confirmation url"
+                }
+            });
+        }
+
+        var user = await _userManager.FindByIdAsync(userId);
+
+        if (user == null)
+        {
+            return BadRequest(new AuthResult()
+            {
+                Errors = new List<string>()
+                {
+                    "Invalid email parameter"
+                }
+            });
+        }
+
+        code = Encoding.UTF8.GetString(Convert.FromBase64String(code));
+        var result = await _userManager.ConfirmEmailAsync(user, code);
+        var status = result.Succeeded ? "Thank you for confirming your email" : "Your email is not confirmed, please try again later.";
+
+        return Ok(status);
+    }
+
     [Route("Login")]
     [HttpPost]
     public async Task<IActionResult> Login([FromBody] UserLoginRequestDto loginRequest)
@@ -120,6 +160,18 @@ public class AuthenticationController : ControllerBase
                     },
                     Result = false
                 });
+
+            if (!existing_user.EmailConfirmed)
+            {
+                return BadRequest(new AuthResult()
+                {
+                    Errors = new List<string>()
+                    {
+                        "Email needs to be confirmed"
+                    },
+                    Result = false
+                });
+            }
 
             var isCorrect = await _userManager.CheckPasswordAsync(existing_user, loginRequest.Password);
 
@@ -178,7 +230,7 @@ public class AuthenticationController : ControllerBase
         return jwtTokenHandler.WriteToken(token);
     }
 
-    private void SendEmail(string body, string email)
+    private bool SendEmail(string body, string email)
     {
         // Create api client
         var client = new RestClient("https://api.mailgun.net/v3");
@@ -186,26 +238,17 @@ public class AuthenticationController : ControllerBase
         var request = new RestRequest("", Method.Post);
 
         client.Authenticator = new HttpBasicAuthenticator("api", _configuration.GetSection("EmailConfig:API_KEY").Value);
-        request.AddParameter("domain", "https://app.mailgun.com/app/sending/domains/sandboxfc56fc9a62e941eaa5f33abc30e9ac9c.mailgun.org");
+        request.AddParameter("domain", "sandboxfc56fc9a62e941eaa5f33abc30e9ac9c.mailgun.org");
         request.Resource = "{domain}/messages";
-        
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+        request.AddParameter("from", "Nick test Mailgun <postmaster@sandboxfc56fc9a62e941eaa5f33abc30e9ac9c.mailgun.org>");
+        request.AddParameter("to", ""); // needs to be authorized recepient for mailgun
+        request.AddParameter("subject", "Email Verification");
+        request.AddParameter("text", body);
+        request.Method = Method.Post;
+
+        var response = client.Execute(request);
+
+        return response.IsSuccessful;
+    }
+ 
 }
